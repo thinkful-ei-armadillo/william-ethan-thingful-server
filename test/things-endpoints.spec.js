@@ -1,8 +1,9 @@
 const knex = require('knex')
 const app = require('../src/app')
 const helpers = require('./test-helpers')
+const jwt = require('jsonwebtoken')
 
-describe('Things Endpoints', function() {
+describe('Things Endpoints', function () {
   let db
 
   const {
@@ -11,6 +12,15 @@ describe('Things Endpoints', function() {
     testReviews,
   } = helpers.makeThingsFixtures()
 
+  function makeAuthHeader(user, secret = process.env.JWT_SECRET) {
+    const token = jwt.sign({ user_id: user.id }, secret, {
+      subject: user.user_name,
+      algorithm: 'HS256',
+    })
+    return `Bearer ${token}`
+  }
+
+  // mocha hooks
   before('make knex instance', () => {
     db = knex({
       client: 'pg',
@@ -24,6 +34,18 @@ describe('Things Endpoints', function() {
   before('cleanup', () => helpers.cleanTables(db))
 
   afterEach('cleanup', () => helpers.cleanTables(db))
+
+  // tests begin
+  describe(`Protected endpoints`, () => {
+    beforeEach('insert articles', () => {
+      helpers.seedArticlesTables(
+        db,
+        testUsers,
+        testArticles,
+        testComments,
+      )
+    })
+  })
 
   describe(`GET /api/things`, () => {
     context(`Given no things`, () => {
@@ -54,7 +76,15 @@ describe('Things Endpoints', function() {
         )
         return supertest(app)
           .get('/api/things')
-          .expect(200, expectedThings)
+          .expect((res) => {
+            expect(res.body[0].title).to.equal(expectedThings[0].title);
+            // console.log(res.body[0].date_created);
+            const actualDate = new Date(res.body[0].date_created).toLocaleString();
+            const expectedDate = new Date(expectedThings[0].date_created).toLocaleString('en', {
+              timeZone: 'UTC'
+            });
+            expect(actualDate).to.equal(expectedDate);
+          })
       })
     })
 
@@ -86,34 +116,19 @@ describe('Things Endpoints', function() {
   })
 
   describe(`GET /api/things/:thing_id`, () => {
-
-    context('Given invalid Authorization header', () => {
-
-      beforeEach('insert things', () =>
-        helpers.seedThingsTables(
-          db,
-          testUsers,
-          testThings,
-          testReviews,
-        )
-      )
-
-      it(`responds with 401 'Unauthorized request'`, () => {
-          const userNoCreds = { user_name: '', password: '' }
-          return supertest(app)
-            .get(`/api/things/1`)
-            .set('Authorization', helpers.makeAuthHeader(userNoCreds))
-            .expect(401, { error: `Unauthorized request` })
-      })
-    });
-
     context(`Given no things`, () => {
+      beforeEach(() =>
+        helpers.seedUsers(db, testUsers)
+      )
+      
       it(`responds with 404`, () => {
         const thingId = 123456
         return supertest(app)
           .get(`/api/things/${thingId}`)
           .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
-          .expect(404, { error: `Thing doesn't exist` })
+          .expect(404, {
+            error: `Thing doesn't exist`
+          })
       })
     })
 
@@ -137,8 +152,17 @@ describe('Things Endpoints', function() {
 
         return supertest(app)
           .get(`/api/things/${thingId}`)
-          .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
-          .expect(200, expectedThing)
+          .set('Authorization', makeAuthHeader(testUsers[0]))
+          .expect((res) => {
+            expect(res.body.title).to.equal(expectedThing.title);
+            // console.log(res.body.date_created);
+            const actualDate = new Date(res.body.date_created).toLocaleString();
+            const expectedDate = new Date(expectedThing.date_created).toLocaleString('en', {
+              timeZone: 'UTC'
+            });
+            expect(actualDate).to.equal(expectedDate);
+          });
+
       })
     })
 
@@ -160,7 +184,7 @@ describe('Things Endpoints', function() {
       it('removes XSS attack content', () => {
         return supertest(app)
           .get(`/api/things/${maliciousThing.id}`)
-          .set('Authorization', helpers.makeAuthHeader(testUser))
+          .set('Authorization', makeAuthHeader(testUser))
           .expect(200)
           .expect(res => {
             expect(res.body.title).to.eql(expectedThing.title)
@@ -171,35 +195,14 @@ describe('Things Endpoints', function() {
   })
 
   describe(`GET /api/things/:thing_id/reviews`, () => {
-
-
-    context('Given invalid Authorization header', () => {
-
-      beforeEach('insert things', () =>
-        helpers.seedThingsTables(
-          db,
-          testUsers,
-          testThings,
-          testReviews,
-        )
-      )
-
-      it(`responds with 401 'Unauthorized request'`, () => {
-          const userNoCreds = { user_name: '', password: '' }
-          return supertest(app)
-            .get(`/api/things/1/reviews`)
-            .set('Authorization', helpers.makeAuthHeader(userNoCreds))
-            .expect(401, { error: `Unauthorized request` })
-      })
-    });
-
     context(`Given no things`, () => {
       it(`responds with 404`, () => {
         const thingId = 123456
         return supertest(app)
           .get(`/api/things/${thingId}/reviews`)
-          .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
-          .expect(404, { error: `Thing doesn't exist` })
+          .expect(404, {
+            error: `Thing doesn't exist`
+          })
       })
     })
 
@@ -221,8 +224,16 @@ describe('Things Endpoints', function() {
 
         return supertest(app)
           .get(`/api/things/${thingId}/reviews`)
-          .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
-          .expect(200, expectedReviews)
+          .set('Authorization', makeAuthHeader(testUsers[0]))
+          .expect((res) => {
+            expect(res.body[0].title).to.equal(expectedReviews[0].title);
+            // console.log(res.body[0].date_created);
+            const actualDate = new Date(res.body[0].date_created).toLocaleString();
+            const expectedDate = new Date(expectedReviews[0].date_created).toLocaleString('en', {
+              timeZone: 'UTC'
+            });
+            expect(actualDate).to.equal(expectedDate);
+          });
       })
     })
   })
