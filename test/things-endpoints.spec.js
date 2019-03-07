@@ -12,13 +12,7 @@ describe('Things Endpoints', function () {
     testReviews,
   } = helpers.makeThingsFixtures()
 
-  function makeAuthHeader(user, secret = process.env.JWT_SECRET) {
-    const token = jwt.sign({ user_id: user.id }, secret, {
-      subject: user.user_name,
-      algorithm: 'HS256',
-    })
-    return `Bearer ${token}`
-  }
+
 
   // mocha hooks
   before('make knex instance', () => {
@@ -152,7 +146,7 @@ describe('Things Endpoints', function () {
 
         return supertest(app)
           .get(`/api/things/${thingId}`)
-          .set('Authorization', makeAuthHeader(testUsers[0]))
+          .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
           .expect((res) => {
             expect(res.body.title).to.equal(expectedThing.title);
             // console.log(res.body.date_created);
@@ -184,7 +178,7 @@ describe('Things Endpoints', function () {
       it('removes XSS attack content', () => {
         return supertest(app)
           .get(`/api/things/${maliciousThing.id}`)
-          .set('Authorization', makeAuthHeader(testUser))
+          .set('Authorization', helpers.makeAuthHeader(testUser))
           .expect(200)
           .expect(res => {
             expect(res.body.title).to.eql(expectedThing.title)
@@ -224,7 +218,7 @@ describe('Things Endpoints', function () {
 
         return supertest(app)
           .get(`/api/things/${thingId}/reviews`)
-          .set('Authorization', makeAuthHeader(testUsers[0]))
+          .set('Authorization', helpers.makeAuthHeader(testUsers[0]))
           .expect((res) => {
             expect(res.body[0].title).to.equal(expectedReviews[0].title);
             // console.log(res.body[0].date_created);
