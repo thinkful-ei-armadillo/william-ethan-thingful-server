@@ -1,6 +1,7 @@
+'use strict';
 const express = require('express')
 const path = require('path')
-const { requireAuth } = require('../middleware/basic-auth')
+const { requireAuth } = require('../middleware/jwt-auth')
 const ReviewsService = require('./reviews-service')
 
 const reviewsRouter = express.Router()
